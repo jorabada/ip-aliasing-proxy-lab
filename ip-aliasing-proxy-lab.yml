@@ -1,0 +1,66 @@
+name: ip-aliasing-proxy-lab
+
+topology:
+  defaults:
+    kind: srl
+  kinds:
+    srl:
+      image: srlinux:latest
+    vr-sros:
+      image: registry.srlinux.dev/pub/vr-sros:24.3.R1
+      license: ./license/sros.lic
+  nodes:
+    ### FABRIC ###
+    leaf1:
+      startup-config: configs/leaf1.cfg
+    leaf2:
+      startup-config: configs/leaf2.cfg
+    leaf3:
+      startup-config: configs/leaf3.cfg
+    leaf4:
+      startup-config: configs/leaf4.cfg
+    spine1:
+      startup-config: configs/spine1.cfg
+    spine2:
+      startup-config: configs/spine2.cfg
+    dcgw1:
+      kind: vr-sros
+      startup-config: configs/dcgw1.cfg
+    ### CLIENTS ###
+    ce1:
+      kind: vr-sros
+      startup-config: configs/ce1.cfg
+    client2:
+      kind: linux
+      image: ghcr.io/hellt/network-multitool
+      binds:
+        - configs/bond.sh:/tmp/bond.sh
+      exec:
+        - bash /tmp/bond.sh
+        - ip link set bond0 address 00:c1:ab:00:00:02
+        - ip addr add 10.10.10.2/24 dev bond0
+        - iperf3 -s -D > iperf3.log
+
+  links:
+    # ce1 links towards leaves
+    - endpoints: ["ce1:eth1", "leaf1:e1-1"]
+    - endpoints: ["ce1:eth2", "leaf2:e1-1"]
+    # client2 links towards leaves
+    - endpoints: ["client2:eth1", "leaf3:e1-1"]
+    - endpoints: ["client2:eth2", "leaf4:e1-1"]
+    # leaf-spine links
+    ## leaf1
+    - endpoints: ["leaf1:e1-49", "spine1:e1-1"]
+    - endpoints: ["leaf1:e1-50", "spine2:e1-1"]
+    ## leaf2
+    - endpoints: ["leaf2:e1-49", "spine1:e1-2"]
+    - endpoints: ["leaf2:e1-50", "spine2:e1-2"]
+    ## leaf3
+    - endpoints: ["leaf3:e1-49", "spine1:e1-3"]
+    - endpoints: ["leaf3:e1-50", "spine2:e1-3"]
+    ## leaf4
+    - endpoints: ["leaf4:e1-49", "spine1:e1-4"]
+    - endpoints: ["leaf4:e1-50", "spine2:e1-4"]
+    ## dcgw1 links
+    - endpoints: ["dcgw1:eth1", "spine1:e1-5"]
+    - endpoints: ["dcgw1:eth2", "spine2:e1-5"]
